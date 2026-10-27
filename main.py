@@ -1,6 +1,7 @@
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
+import argparse
 
 
 
@@ -16,7 +17,11 @@ def main():
         api_key=api_key,
     ) 
 
-    prompt = "Why is Boot.dev such a great place to learn backend development? Use one paragraph maximum."
+    parser = argparse.ArgumentParser(description="Input user prompt.")
+    parser.add_argument("user_prompt", type = str, help="User prompt")
+    args = parser.parse_args()
+    prompt = args.user_prompt
+    # "Why is Boot.dev such a great place to learn backend development? Use one paragraph maximum."
 
     response = client.chat.completions.create(
         model = "openrouter/free",
