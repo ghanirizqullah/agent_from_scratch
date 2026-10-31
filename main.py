@@ -6,7 +6,6 @@ import argparse
 
 
 def main():
-    # print("Hello from agent-from-scratch!")
     load_dotenv()
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
@@ -28,11 +27,12 @@ def main():
             "content": args.user_prompt
         }
     ]
+
     output = generate_content(client, messages)
     if args.verbose:
         print(f"User prompt: {messages[0]['content']}")
-        print(f"Prompt tokens:{output.usage.prompt_tokens}")
-        print(f"Response tokens: {output.usage.completion_tokens}")
+        print(f"Prompt tokens:{output.usage.prompt_tokens}") # type: ignore
+        print(f"Response tokens: {output.usage.completion_tokens}") # type: ignore
     print("Response:")
     print(output.choices[0].message.content)
 
