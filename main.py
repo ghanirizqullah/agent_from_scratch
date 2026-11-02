@@ -1,7 +1,12 @@
+import json
 import os
+from prompts import system_prompt
 from dotenv import load_dotenv
 from openai import OpenAI
 import argparse
+
+from call_functions import available_functions 
+from call_functions import call_function
 
 
 
@@ -23,24 +28,51 @@ def main():
 
     messages=[
         {
+            "role": "system",
+            "content":system_prompt 
+        },
+        {
             "role": "user",
             "content": args.user_prompt
         }
     ]
 
     output = generate_content(client, messages)
+    message = output.choices[0].message
+
     if args.verbose:
         print(f"User prompt: {messages[0]['content']}")
         print(f"Prompt tokens:{output.usage.prompt_tokens}") # type: ignore
         print(f"Response tokens: {output.usage.completion_tokens}") # type: ignore
+        print("")
+    
     print("Response:")
-    print(output.choices[0].message.content)
+    print(message.content)
+    print("")
+
+    # print(message.tool_calls) # Example: [ChatCompletionMessageFunctionToolCall(id='call-76eff4e8-cf09-49d3-a697-f68a9584801f', function=Function(arguments='{"file_path":"main.txt","content":"hello"}', name='write_file'), type='function', index=0)]
+    if message.tool_calls:
+        for tool_call in message.tool_calls:
+            # function_args = json.loads(tool_call.function.arguments or "{}") # type: ignore
+            # print(f"Calling function: {tool_call.function.name}({function_args})") # type: ignore
+            
+            result_message = call_function(tool_call)
+            
+            if not result_message['content']:
+                raise Exception("Empty function content")
+            if args.verbose:
+                print(f"-> {result_message['content']}")
+
+            
+
+
 
 
 def generate_content(client, messages):
     response = client.chat.completions.create(
         model = "openrouter/free",
         messages=messages, # type: ignore
+        tools = available_functions,
     )
     if not response.usage:
         raise RuntimeError("Failed API request")
