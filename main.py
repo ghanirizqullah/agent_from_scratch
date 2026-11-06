@@ -1,5 +1,7 @@
+import sys
 import json
 import os
+from config import MAX_ITERS
 from prompts import system_prompt
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -36,39 +38,25 @@ def main():
             "content": args.user_prompt
         }
     ]
+    for _ in range(20):
+        try:
+            final_response = generate_content(client, messages, args.verbose)
+            if final_response:
+                print("Final response: ")
+                print(final_response)
+                return 
+        except Exception as e:
+            print(f"Error in generate_content: {e}")
 
-    output = generate_content(client, messages)
-    message = output.choices[0].message
-
-    if args.verbose:
-        print(f"User prompt: {messages[0]['content']}")
-        print(f"Prompt tokens:{output.usage.prompt_tokens}") # type: ignore
-        print(f"Response tokens: {output.usage.completion_tokens}") # type: ignore
-        print("")
-    
-    print("Response:")
-    print(message.content)
-    print("")
-
-    # print(message.tool_calls) # Example: [ChatCompletionMessageFunctionToolCall(id='call-76eff4e8-cf09-49d3-a697-f68a9584801f', function=Function(arguments='{"file_path":"main.txt","content":"hello"}', name='write_file'), type='function', index=0)]
-    if message.tool_calls:
-        for tool_call in message.tool_calls:
-            # function_args = json.loads(tool_call.function.arguments or "{}") # type: ignore
-            # print(f"Calling function: {tool_call.function.name}({function_args})") # type: ignore
-            
-            result_message = call_function(tool_call)
-            
-            if not result_message['content']:
-                raise Exception("Empty function content")
-            if args.verbose:
-                print(f"-> {result_message['content']}")
+    print(f"Maximum iterations ({MAX_ITERS}) reached")
+    sys.exit(1)
 
             
 
 
 
 
-def generate_content(client, messages):
+def generate_content(client, messages, verbose:bool):
     response = client.chat.completions.create(
         model = "openrouter/free",
         messages=messages, # type: ignore
@@ -76,7 +64,37 @@ def generate_content(client, messages):
     )
     if not response.usage:
         raise RuntimeError("Failed API request")
-    return response
+    if verbose:
+        print(f"User prompt: {messages[0]['content']}")
+        print(f"Prompt tokens:{response.usage.prompt_tokens}") # type: ignore
+        print(f"Response tokens: {response.usage.completion_tokens}") # type: ignore
+        print("")
+
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        return message.content
+    
+    
+    # print("Response:")
+    # print(message.content)
+    # print("")
+
+    # print(message.tool_calls) # Example: [ChatCompletionMessageFunctionToolCall(id='call-76eff4e8-cf09-49d3-a697-f68a9584801f', function=Function(arguments='{"file_path":"main.txt","content":"hello"}', name='write_file'), type='function', index=0)]
+    # if message.tool_calls:
+    for tool_call in message.tool_calls:          
+        if tool_call.type != "function":
+            continue
+        result_message = call_function(tool_call, verbose)
+        
+        if not result_message['content']:
+            raise Exception(f"Empty function response for {tool_call.function.name}")
+        if verbose:
+            print(f"-> {result_message['content']}")
+        messages.append(result_message)
+
+    return None
 
 
 if __name__ == "__main__":
